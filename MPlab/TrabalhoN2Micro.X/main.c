@@ -50,6 +50,7 @@ unsigned char password[6] = "";
 unsigned char success [17] =  "Seja bem vindo! ";                  //declara??o de vetor inicializado
 unsigned char invalid [17] = "Senha inválida  ";                  //declara??o de vetor inicializado
 
+int userOrPass = 1;                                               // 1=user e 0=passward
 int position_password = 0;
 int position_user = 0;
 int qtdHashtag = 0;
@@ -162,7 +163,9 @@ void escreveCaracterL2(char esc[17]) {
 void addUser(char x){
     user[position_user] = x;
     position_user++;
+    //userOrPass = 1;
     if(position_user == 3 ){
+        userOrPass = 0;
         escreveCaracterL1(senha);
         escreveCaracterL2(limpa);
         EscInstLCD(0xC0); //posiciona cursor na primeir aposic??o  da segunda linha
@@ -183,6 +186,7 @@ void addPassword(char x){
         escreveCaracterL2(limpa);
         //delay de 3 segundos
         for(dly=0;dly<50;dly++) _Delay5ms();
+        userOrPass = 1;  // valida senha
         escreveCaracterL1(usuario);
         EscInstLCD(0xC0); //posiciona cursor na primeir aposic??o  da segunda linha
         while (TesteBusyFlag()); //espera LCD controller terminar de executar instru??o
@@ -195,7 +199,12 @@ void escreveCaracter(char esc) {
         while (TesteBusyFlag()); //espera LCD controller terminar de executar instru??o
     }
     
-    EscDataLCD('*'); //escreve string no LCD					
+    if(userOrPass){
+        EscDataLCD(esc); //escreve string no LCD quando não é senha	
+    }else{
+        EscDataLCD('*'); //escreve string no LCD quando é senha
+    }
+    
     while (TesteBusyFlag()); //espera LCD controller terminar de executar instru??o
     Delay10KTCYx(20);
     qtdLinha++;
@@ -249,8 +258,8 @@ void high_isr(void) {
             else if (row_4) escreveCaracter('*');
             col_1 = 0;
             col_2 = 1;
-            col_3 = 1;
-            col_4 = 1;
+            col_3 = 0;
+            col_4 = 0;
             controle = 2;
 
         } else if (col_2 && controle == 2) {
@@ -258,10 +267,10 @@ void high_isr(void) {
             else if (row_2) escreveCaracter('5');
             else if (row_3) escreveCaracter('8');
             else if (row_4) escreveCaracter('0');
-            col_1 = 1;
+            col_1 = 0;
             col_2 = 0;
             col_3 = 1;
-            col_4 = 1;
+            col_4 = 0;
             controle = 3;
 
         } else if (col_3 && controle == 3) {
@@ -269,8 +278,8 @@ void high_isr(void) {
             else if (row_2) escreveCaracter('4');
             else if (row_3) escreveCaracter('9');
             else if (row_4) escreveCaracter('#');
-            col_1 = 1;
-            col_2 = 1;
+            col_1 = 0;
+            col_2 = 0;
             col_3 = 0;
             col_4 = 1;
             controle = 4;
@@ -281,8 +290,8 @@ void high_isr(void) {
             else if (row_3) escreveCaracter('C');
             else if (row_4) escreveCaracter('D');
             col_1 = 1;
-            col_2 = 1;
-            col_3 = 1;
+            col_2 = 0;
+            col_3 = 0;
             col_4 = 0;
             controle = 1;
         }
