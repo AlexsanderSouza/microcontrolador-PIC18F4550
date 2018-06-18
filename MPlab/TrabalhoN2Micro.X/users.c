@@ -9,6 +9,7 @@ Autor:				Álefe Macedo
 #include "users.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 // Funções
 /*******************************************************************/
@@ -18,17 +19,32 @@ unsigned char eepromEmptyAddress() {
     for( i=0; i< 256; i++ )
     {
       if(Read_b_eep(i) == 0xFF){
-            return i; 
+            return i;
             break;
       }
       Delay10TCYx(1);
     }
 }
 
+int compareArray(unsigned char *a,unsigned char *b)	{
+	int i = 0;
+    while(1) {        
+        if(*(a+i) != *(b+i)) {
+            return 0;
+        }
+        
+        if((*(a+i) == 0x23 || *(a+i) == 0x00) || (*(b+i) == 0x00 || *(b+i) == 0x23)) {
+            break;
+        }
+        i++;
+    }
+	return 1;
+}
+
 // Recebe um id e uma senha para salvar um novo usuário 
 void saveNewUser(unsigned char *id, unsigned char *password) {
-    unsigned char *bufferID;
-    unsigned char *bufferPASS;
+    unsigned char bufferID[50];
+    unsigned char bufferPASS[50];
     unsigned char i = 1;
     unsigned char address = eepromEmptyAddress();
     
@@ -36,7 +52,7 @@ void saveNewUser(unsigned char *id, unsigned char *password) {
     *(bufferPASS+0) = 0x50;
     
     while (1) {
-        if (*id == 0x00) {
+        if (*id == 0x00 || i > 3) {
             *(bufferID+i) = 0x23;
             break;
         }
@@ -55,7 +71,7 @@ void saveNewUser(unsigned char *id, unsigned char *password) {
     
     i = 1;
     while (1) {
-        if (*password == 0x00) {
+        if (*password == 0x00 || i > 6) {
             *(bufferPASS+i) = 0x23;
             break;
         }
@@ -73,16 +89,16 @@ void saveNewUser(unsigned char *id, unsigned char *password) {
 
 // Autentica os dados de um usuário de acordo com os dados salvos na eeprom
 int authenticateUser(unsigned char *id, unsigned char *password) {
-    unsigned char *read;                     //buffer para leitura da eeprom
-    unsigned char *bufferID;
-    unsigned char *bufferPASS;
+    unsigned char bufferID[25];
+    unsigned char bufferPASS[35];
+    unsigned char read[50];                      //buffer para leitura da eeprom
     unsigned char address = 0x00;
     unsigned char i = 1;
     *(bufferID+0) = 0x55;
     *(bufferPASS+0) = 0x50;
     
     while (1) {
-        if (*id == 0x00) {
+        if (*id == 0x00 || i > 3) {
             *(bufferID+i) = 0x23;
             break;
         }
@@ -93,7 +109,7 @@ int authenticateUser(unsigned char *id, unsigned char *password) {
     
     i = 1;
     while (1) {
-        if (*password == 0x00) {
+        if (*password == 0x00 || i > 6) {
             *(bufferPASS+i) = 0x23;
             break;
         }
@@ -105,13 +121,77 @@ int authenticateUser(unsigned char *id, unsigned char *password) {
     //le da eeprom
     while (1) {
         address += (EEPROM_Read_Block(address, read) + 1);
-        if(memcmp(read, bufferID, 1) == 0) {
+        // caso a eeprom esteja vazia
+        if(address == 0x01) address--;
+        
+        if(compareArray(read, bufferID)) {
             address += (EEPROM_Read_Block(address, read) + 1);
             
-            if(memcmp(read, bufferPASS, 1) == 0) return 1;
+            if(compareArray(read, bufferPASS)) return 1;
             else return 0;
             
             break;
+        } else if(address == eepromEmptyAddress()) {
+            return 0;
+        }
+    }
+}
+
+// Autentica os dados de um usuário de acordo com os dados salvos na eeprom
+void saveRoot() {
+    unsigned char read[50];                     //buffer para leitura da eeprom
+    unsigned char user[5] = "U999#";
+    unsigned char password[8] = "P123456#";
+    unsigned char address = 0x00;
+
+    // busca pelo root na eeprom
+    while (1) {
+        address += (EEPROM_Read_Block(address, read) + 1);
+        // caso a eeprom esteja vazia
+        if(address == 0x01) address--;
+        
+        if(compareArray(read, user)) {
+            break;
+        } else if(address == eepromEmptyAddress()) {
+            EEPROM_Write_Block(eepromEmptyAddress(), user);
+            EEPROM_Write_Block(eepromEmptyAddress(), password);
+            break;
+        }
+    }
+}
+
+int updateRoot(unsigned char *newPassword) {
+    unsigned char read[50];                     //buffer para leitura da eeprom
+    unsigned char user[5] = "U999#";
+    unsigned char bufferPASS[50];
+    unsigned char address = 0x00;
+    unsigned char i = 1;
+    *(bufferPASS+0) = 0x50;
+    
+    while (1) {
+        if (*newPassword == 0x00 || i > 6) {
+            *(bufferPASS+i) = 0x23;
+            break;
+        }
+        *(bufferPASS+i) = *newPassword; 
+        newPassword++;
+        i++;
+    }
+    
+    // busca pelo root na eeprom
+    while (1) {
+        address += (EEPROM_Read_Block(address, read) + 1);
+        // caso a eeprom esteja vazia
+        if(address == 0x01) address--;
+        
+        if(compareArray(read, user)) {
+            EEPROM_Write_Block(address, bufferPASS);
+            EEPROM_Read_Block(address, read);
+            
+            if(compareArray(read, bufferPASS)) return 1;
+            else return 0;            
+            break;
+        
         } else if(address == eepromEmptyAddress()) {
             return 0;
         }
